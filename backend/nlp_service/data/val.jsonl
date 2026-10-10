@@ -1,0 +1,5 @@
+{"text": "We designed a microservice architecture where services communicated asynchronously via Apache Kafka for event-driven updates, with fallback circuit breakers via Resilience4j.", "intent": "answer", "relevance": "relevant"}
+{"text": "To handle concurrent writes, we used optimistic locking with version columns in PostgreSQL and distributed locks in Redis for critical transaction paths.", "intent": "answer", "relevance": "relevant"}
+{"text": "My favorite hobby is playing guitar on weekends.", "intent": "off_topic", "relevance": "irrelevant"}
+{"text": "Could you repeat that one more time?", "intent": "repeat_request", "relevance": "partially_relevant"}
+{"text": "...", "intent": "unintelligible", "relevance": "irrelevant"}

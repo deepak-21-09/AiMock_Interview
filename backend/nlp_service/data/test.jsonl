@@ -1,0 +1,6 @@
+{"text": "Pardon? Please repeat.", "intent": "repeat_request", "relevance": "partially_relevant"}
+{"text": "I try to write good clean code by organizing functions and following common conventions.", "intent": "answer", "relevance": "partially_relevant"}
+{"text": "Skip this question please.", "intent": "skip_request", "relevance": "irrelevant"}
+{"text": "Pass, let's go to the next topic.", "intent": "skip_request", "relevance": "irrelevant"}
+{"text": "Can you say that again? I didn't quite catch that.", "intent": "repeat_request", "relevance": "partially_relevant"}
+{"text": "Are you asking about SQL indexes or database partitioning specifically?", "intent": "clarification_request", "relevance": "relevant"}

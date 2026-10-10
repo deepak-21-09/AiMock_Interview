@@ -1,0 +1,24 @@
+{"text": "What do you mean by high availability in this context?", "intent": "clarification_request", "relevance": "relevant"}
+{"text": "I don't know the answer to this question, let's skip it.", "intent": "skip_request", "relevance": "irrelevant"}
+{"text": "Say again please?", "intent": "repeat_request", "relevance": "partially_relevant"}
+{"text": "I am just testing my camera right now.", "intent": "off_topic", "relevance": "irrelevant"}
+{"text": "To diagnose high CPU usage, I first inspect process metrics using htop, analyze slow query logs, review memory leak heap dumps, and profile hotspots using a profiler.", "intent": "answer", "relevance": "relevant"}
+{"text": "What time will this interview finish because I have a meeting?", "intent": "off_topic", "relevance": "irrelevant"}
+{"text": "When designing a REST API, I adhere to proper HTTP status codes, statelessness, clear resource naming, and token-based authentication like JWT.", "intent": "answer", "relevance": "relevant"}
+{"text": "I am not sure about this, let's proceed to the next one.", "intent": "skip_request", "relevance": "irrelevant"}
+{"text": "mm hmm uh yeah", "intent": "unintelligible", "relevance": "irrelevant"}
+{"text": "[inaudible background noise]", "intent": "unintelligible", "relevance": "irrelevant"}
+{"text": "I haven't worked with Kubernetes, so I'd like to skip this.", "intent": "skip_request", "relevance": "irrelevant"}
+{"text": "Could you give an example of the kind of edge case you want me to address?", "intent": "clarification_request", "relevance": "relevant"}
+{"text": "Do you want me to focus on the frontend architecture or the database design?", "intent": "clarification_request", "relevance": "relevant"}
+{"text": "In my previous project, we implemented Redis for caching database queries. This reduced our read latency by over 60 percent. We used a cache-aside pattern with TTL invalidation.", "intent": "answer", "relevance": "relevant"}
+{"text": "Can you clarify if you mean client-side or server-side caching?", "intent": "clarification_request", "relevance": "relevant"}
+{"text": "Did you watch the football game last night?", "intent": "off_topic", "relevance": "irrelevant"}
+{"text": "A time I had a conflict was during a sprint planning when the designer wanted complex animations. I showed performance benchmarks on mobile, and we compromised on lighter CSS animations.", "intent": "answer", "relevance": "relevant"}
+{"text": "Could you clarify what you mean by horizontal scaling?", "intent": "clarification_request", "relevance": "relevant"}
+{"text": "uh ummm ahhh...", "intent": "unintelligible", "relevance": "irrelevant"}
+{"text": "Could you please repeat the question?", "intent": "repeat_request", "relevance": "partially_relevant"}
+{"text": "Well, I think Python is a programming language and you can write loops and functions in it.", "intent": "answer", "relevance": "partially_relevant"}
+{"text": "Can we move on to the next question please?", "intent": "skip_request", "relevance": "irrelevant"}
+{"text": "The weather is really nice outside today and I enjoy coffee.", "intent": "off_topic", "relevance": "irrelevant"}
+{"text": "Sorry, my audio glitched. Can you repeat what you asked?", "intent": "repeat_request", "relevance": "partially_relevant"}

@@ -1,0 +1,33 @@
+from app.models.entities import (
+    User,
+    CandidateProfile,
+    Resume,
+    InterviewSession,
+    InterviewRound,
+    InterviewQuestion,
+    InterviewAnswer,
+    Transcript,
+    NLPAnalysis,
+    AnswerEvaluation,
+    InterviewReport,
+    PracticeAttempt,
+    ModelVersion,
+    ConsentRecord,
+)
+
+__all__ = [
+    "User",
+    "CandidateProfile",
+    "Resume",
+    "InterviewSession",
+    "InterviewRound",
+    "InterviewQuestion",
+    "InterviewAnswer",
+    "Transcript",
+    "NLPAnalysis",
+    "AnswerEvaluation",
+    "InterviewReport",
+    "PracticeAttempt",
+    "ModelVersion",
+    "ConsentRecord",
+]

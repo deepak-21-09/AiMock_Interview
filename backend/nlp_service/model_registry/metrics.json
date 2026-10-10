@@ -1,0 +1,40 @@
+{
+  "macro_f1": 1.0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "confusion_matrix": [
+    [
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      2,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      2
+    ]
+  ],
+  "classes": [
+    "answer",
+    "clarification_request",
+    "off_topic",
+    "repeat_request",
+    "skip_request",
+    "unintelligible"
+  ],
+  "version_tag": "nlp-intent-clf-v1.0.0"
+}

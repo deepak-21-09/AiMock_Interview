@@ -137,7 +137,8 @@ export const RegisterPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition shadow-lg shadow-blue-600/30 disabled:opacity-50"
+            data-cursor-label="Create Account"
+            className="w-full mt-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition shadow-lg shadow-blue-600/30 disabled:opacity-50 cursor-target"
           >
             {loading ? 'Creating Account...' : 'Register'}
           </button>
@@ -145,7 +146,11 @@ export const RegisterPage: React.FC = () => {
 
         <p className="text-center text-xs text-slate-400 mt-6">
           Already registered?{' '}
-          <Link to="/login" className="text-blue-400 hover:underline font-semibold">
+          <Link
+            to="/login"
+            data-cursor-label="Sign In"
+            className="text-blue-400 hover:underline font-semibold cursor-target"
+          >
             Sign in
           </Link>
         </p>

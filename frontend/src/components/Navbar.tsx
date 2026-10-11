@@ -18,7 +18,7 @@ export const Navbar: React.FC = () => {
   return (
     <header className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur border-b border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
+        <Link to="/" data-cursor-label="Home" className="flex items-center gap-3 cursor-target">
           <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
             <Bot className="h-6 w-6" />
           </div>
@@ -32,7 +32,8 @@ export const Navbar: React.FC = () => {
           <nav className="flex items-center gap-1 sm:gap-4">
             <Link
               to="/dashboard"
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+              data-cursor-label="Dashboard"
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition cursor-target ${
                 isActive('/dashboard') ? 'bg-slate-800 text-blue-400' : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
               }`}
             >
@@ -40,7 +41,8 @@ export const Navbar: React.FC = () => {
             </Link>
             <Link
               to="/resumes"
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${
+              data-cursor-label="Resumes"
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 cursor-target ${
                 isActive('/resumes') ? 'bg-slate-800 text-blue-400' : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
               }`}
             >
@@ -48,7 +50,8 @@ export const Navbar: React.FC = () => {
             </Link>
             <Link
               to="/setup"
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${
+              data-cursor-label="Start"
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 cursor-target ${
                 isActive('/setup') ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
               }`}
             >
@@ -56,7 +59,8 @@ export const Navbar: React.FC = () => {
             </Link>
             <Link
               to="/history"
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${
+              data-cursor-label="History"
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 cursor-target ${
                 isActive('/history') ? 'bg-slate-800 text-blue-400' : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
               }`}
             >
@@ -64,7 +68,8 @@ export const Navbar: React.FC = () => {
             </Link>
             <Link
               to="/profile"
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${
+              data-cursor-label="Profile"
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 cursor-target ${
                 isActive('/profile') ? 'bg-slate-800 text-blue-400' : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
               }`}
             >
@@ -72,7 +77,8 @@ export const Navbar: React.FC = () => {
             </Link>
             <button
               onClick={handleLogout}
-              className="ml-2 p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition"
+              data-cursor-label="Logout"
+              className="ml-2 p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-target"
               title="Logout"
             >
               <LogOut className="h-5 w-5" />
@@ -82,13 +88,15 @@ export const Navbar: React.FC = () => {
           <div className="flex items-center gap-3">
             <Link
               to="/login"
-              className="text-slate-300 hover:text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-800 transition"
+              data-cursor-label="Sign In"
+              className="text-slate-300 hover:text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-800 transition cursor-target"
             >
               Sign In
             </Link>
             <Link
               to="/register"
-              className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-lg shadow-blue-600/30 transition"
+              data-cursor-label="Get Started"
+              className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-lg shadow-blue-600/30 transition cursor-target"
             >
               Get Started
             </Link>

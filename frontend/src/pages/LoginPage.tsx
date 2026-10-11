@@ -113,7 +113,8 @@ export const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition shadow-lg shadow-blue-600/30 disabled:opacity-50"
+            data-cursor-label="Sign In"
+            className="w-full mt-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition shadow-lg shadow-blue-600/30 disabled:opacity-50 cursor-target"
           >
             {loading ? 'Authenticating...' : 'Sign In'}
           </button>
@@ -129,8 +130,9 @@ export const LoginPage: React.FC = () => {
               <button
                 key={s}
                 type="button"
+                data-cursor-label={s}
                 onClick={() => setShape(s)}
-                className={`px-2 py-0.5 rounded capitalize transition ${
+                className={`px-2 py-0.5 rounded capitalize transition cursor-target ${
                   shape === s ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -142,7 +144,11 @@ export const LoginPage: React.FC = () => {
 
         <p className="text-center text-xs text-slate-400 mt-5">
           Don't have an account?{' '}
-          <Link to="/register" className="text-blue-400 hover:underline font-semibold">
+          <Link
+            to="/register"
+            data-cursor-label="Sign Up"
+            className="text-blue-400 hover:underline font-semibold cursor-target"
+          >
             Create an account
           </Link>
         </p>

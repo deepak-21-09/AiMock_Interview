@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
+import { TargetCursor } from './components/TargetCursor';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -34,6 +35,18 @@ export const App: React.FC = () => {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <TargetCursor
+          targetSelector=".cursor-target, button, a, [role='button']"
+          cursorColor="#60a5fa"
+          cursorColorOnTarget="#38bdf8"
+          hoverDuration={0.18}
+          spinDuration={2.5}
+          size={32}
+          cornerSize={10}
+          thickness={2.5}
+          padding={6}
+          dotSize={4}
+        />
         <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
           <Navbar />
           <main className="flex-1">

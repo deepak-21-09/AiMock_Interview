@@ -21,13 +21,15 @@ export const LandingPage: React.FC = () => {
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
             to="/register"
-            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-base shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2"
+            data-cursor-label="Get Started"
+            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-base shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2 cursor-target"
           >
             Start Practicing Free <ArrowRight className="h-5 w-5" />
           </Link>
           <a
             href="#features"
-            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-200 border border-slate-700 font-medium text-base transition flex items-center justify-center"
+            data-cursor-label="Features"
+            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-200 border border-slate-700 font-medium text-base transition flex items-center justify-center cursor-target"
           >
             Explore How It Works
           </a>

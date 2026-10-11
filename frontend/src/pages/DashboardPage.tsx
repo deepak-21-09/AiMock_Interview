@@ -51,7 +51,7 @@ export const DashboardPage: React.FC = () => {
             <Sparkles className="h-3.5 w-3.5" /> Candidate Dashboard
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
-            Welcome back, {user?.profile?.full_name || user?.email.split('@')[0]}!
+            Welcome back, {user?.profile?.full_name || user?.email?.split('@')[0] || 'Candidate'}!
           </h1>
           <p className="text-slate-400 text-sm mt-1 max-w-xl">
             Targeting: <span className="text-blue-300 font-medium">{user?.profile?.target_role || 'Software Engineer'}</span>. Practice with our adaptive AI agent to boost your technical delivery and communication.

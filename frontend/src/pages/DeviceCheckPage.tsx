@@ -87,7 +87,11 @@ export const DeviceCheckPage: React.FC = () => {
 
   const stopStreams = () => {
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    if (audioContextRef.current) audioContextRef.current.close();
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      try {
+        audioContextRef.current.close();
+      } catch {}
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
     }

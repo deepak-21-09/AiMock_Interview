@@ -2,6 +2,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from typing import List, Optional
 
 from app.db.session import get_db
@@ -127,6 +128,7 @@ async def generate_plan(
 async def list_interviews(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     stmt = (
         select(InterviewSession)
+        .options(selectinload(InterviewSession.report))
         .where(InterviewSession.user_id == current_user.id)
         .order_by(InterviewSession.created_at.desc())
     )
@@ -158,14 +160,23 @@ async def get_interview_detail(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(InterviewSession).where(InterviewSession.id == session_id, InterviewSession.user_id == current_user.id)
+    stmt = (
+        select(InterviewSession)
+        .options(selectinload(InterviewSession.report))
+        .where(InterviewSession.id == session_id, InterviewSession.user_id == current_user.id)
+    )
     res = await db.execute(stmt)
     s = res.scalar_one_or_none()
     if not s:
         raise HTTPException(status_code=404, detail="Interview session not found.")
 
     # Questions list
-    q_stmt = select(InterviewQuestion).where(InterviewQuestion.session_id == s.id).order_by(InterviewQuestion.order_index.asc())
+    q_stmt = (
+        select(InterviewQuestion)
+        .options(selectinload(InterviewQuestion.round))
+        .where(InterviewQuestion.session_id == s.id)
+        .order_by(InterviewQuestion.order_index.asc())
+    )
     q_res = await db.execute(q_stmt)
     questions = q_res.scalars().all()
 
@@ -231,7 +242,12 @@ async def start_interview(
     await db.commit()
 
     # Retrieve first pending question
-    q_stmt = select(InterviewQuestion).where(InterviewQuestion.session_id == session.id, InterviewQuestion.status == "pending").order_by(InterviewQuestion.order_index.asc())
+    q_stmt = (
+        select(InterviewQuestion)
+        .options(selectinload(InterviewQuestion.round))
+        .where(InterviewQuestion.session_id == session.id, InterviewQuestion.status == "pending")
+        .order_by(InterviewQuestion.order_index.asc())
+    )
     q_res = await db.execute(q_stmt)
     first_q = q_res.scalars().first()
 
@@ -293,7 +309,12 @@ async def repeat_question(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
 
-    q_stmt = select(InterviewQuestion).where(InterviewQuestion.session_id == session.id, InterviewQuestion.status == "pending").order_by(InterviewQuestion.order_index.asc())
+    q_stmt = (
+        select(InterviewQuestion)
+        .options(selectinload(InterviewQuestion.round))
+        .where(InterviewQuestion.session_id == session.id, InterviewQuestion.status == "pending")
+        .order_by(InterviewQuestion.order_index.asc())
+    )
     q_res = await db.execute(q_stmt)
     curr_q = q_res.scalars().first()
     if not curr_q:
@@ -331,7 +352,12 @@ async def clarify_question(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
 
-    q_stmt = select(InterviewQuestion).where(InterviewQuestion.session_id == session.id, InterviewQuestion.status == "pending").order_by(InterviewQuestion.order_index.asc())
+    q_stmt = (
+        select(InterviewQuestion)
+        .options(selectinload(InterviewQuestion.round))
+        .where(InterviewQuestion.session_id == session.id, InterviewQuestion.status == "pending")
+        .order_by(InterviewQuestion.order_index.asc())
+    )
     q_res = await db.execute(q_stmt)
     curr_q = q_res.scalars().first()
     if not curr_q:
@@ -372,7 +398,12 @@ async def skip_question(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
 
-    q_stmt = select(InterviewQuestion).where(InterviewQuestion.session_id == session.id, InterviewQuestion.status == "pending").order_by(InterviewQuestion.order_index.asc())
+    q_stmt = (
+        select(InterviewQuestion)
+        .options(selectinload(InterviewQuestion.round))
+        .where(InterviewQuestion.session_id == session.id, InterviewQuestion.status == "pending")
+        .order_by(InterviewQuestion.order_index.asc())
+    )
     q_res = await db.execute(q_stmt)
     curr_q = q_res.scalars().first()
     if not curr_q:
@@ -384,6 +415,7 @@ async def skip_question(
     # Look for next question
     next_res = await db.execute(
         select(InterviewQuestion)
+        .options(selectinload(InterviewQuestion.round))
         .where(InterviewQuestion.session_id == session.id, InterviewQuestion.status == "pending")
         .order_by(InterviewQuestion.order_index.asc())
     )

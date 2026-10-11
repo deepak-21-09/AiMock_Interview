@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
+from sqlalchemy.orm import selectinload
 from typing import List, Dict, Any
 
 from app.db.session import get_db
@@ -13,6 +14,7 @@ router = APIRouter()
 async def get_history(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     stmt = (
         select(InterviewSession)
+        .options(selectinload(InterviewSession.report))
         .where(InterviewSession.user_id == current_user.id)
         .order_by(InterviewSession.created_at.desc())
     )

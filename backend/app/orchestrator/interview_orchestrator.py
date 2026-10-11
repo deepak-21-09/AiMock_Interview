@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
+from sqlalchemy.orm import selectinload
 from typing import Dict, Any, Optional, List
 import uuid
 
@@ -40,7 +41,7 @@ class CentralInterviewOrchestrator:
         if not session:
             raise ValueError("Interview session not found.")
 
-        q_stmt = select(InterviewQuestion).where(InterviewQuestion.id == question_id)
+        q_stmt = select(InterviewQuestion).options(selectinload(InterviewQuestion.round)).where(InterviewQuestion.id == question_id)
         q_res = await db.execute(q_stmt)
         curr_question = q_res.scalar_one_or_none()
         if not curr_question:
@@ -254,6 +255,7 @@ class CentralInterviewOrchestrator:
         # Find next pending question
         stmt = (
             select(InterviewQuestion)
+            .options(selectinload(InterviewQuestion.round))
             .where(
                 InterviewQuestion.session_id == session.id,
                 InterviewQuestion.status == "pending"

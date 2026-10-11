@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
 from app.api.deps import get_current_user
@@ -39,6 +40,11 @@ async def get_interview_report(
     # Fetch question evaluations
     q_stmt = (
         select(InterviewQuestion)
+        .options(
+            selectinload(InterviewQuestion.round),
+            selectinload(InterviewQuestion.answers).selectinload(InterviewAnswer.transcript),
+            selectinload(InterviewQuestion.answers).selectinload(InterviewAnswer.evaluation)
+        )
         .where(InterviewQuestion.session_id == session.id)
         .order_by(InterviewQuestion.order_index.asc())
     )

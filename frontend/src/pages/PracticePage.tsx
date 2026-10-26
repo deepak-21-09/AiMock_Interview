@@ -3,9 +3,15 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { PracticeComparison } from '../types';
 import {
-  RefreshCw, Award, ArrowLeft, Send,
-  TrendingUp, CheckCircle2, AlertCircle, Bot
+  Send, ArrowLeft, TrendingUp, AlertCircle,
 } from 'lucide-react';
+
+const card: React.CSSProperties = {
+  background: 'var(--bg-surface)',
+  border: '1px solid var(--border)',
+  borderRadius: 20,
+  padding: 28,
+};
 
 export const PracticePage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -18,15 +24,8 @@ export const PracticePage: React.FC = () => {
 
   const handleSubmitRetry = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!questionId) {
-      setError('Please select a question from a completed report to practice.');
-      return;
-    }
-    if (!revisedAnswer.trim()) {
-      setError('Please provide a revised answer to evaluate.');
-      return;
-    }
-
+    if (!questionId) { setError('Please select a question from a completed report to practice.'); return; }
+    if (!revisedAnswer.trim()) { setError('Please provide a revised answer to evaluate.'); return; }
     setSubmitting(true);
     setError('');
     try {
@@ -34,35 +33,43 @@ export const PracticePage: React.FC = () => {
       setComparison(res);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to submit practice retry.');
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-3xl space-y-8">
       <div>
-        <Link to="/dashboard" className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white mb-2">
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center gap-1.5 text-xs mb-2 cursor-target"
+          style={{ color: 'var(--text-secondary)' }}
+        >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Dashboard
         </Link>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Practice & Coaching Lab</h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Refine your answers to weak questions and receive immediate comparative score improvements without altering your original interview report.
+        <h1 className="text-2xl font-extrabold" style={{ color: 'var(--text-primary)' }}>
+          Practice &amp; Coaching Lab
+        </h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+          Refine your answers to weak questions and receive immediate comparative score improvements.
         </p>
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{error}</span>
+        <div
+          className="p-4 rounded-[14px] text-xs flex items-center gap-2"
+          style={{ background: '#FEE2E2', color: 'var(--danger)', border: '1px solid #FECACA' }}
+        >
+          <AlertCircle className="h-4 w-4 shrink-0" /> {error}
         </div>
       )}
 
-      {/* Answer Revision Box */}
-      <div className="p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-6">
+      {/* Answer revision */}
+      <div style={card} className="space-y-5">
         <div>
-          <h3 className="font-bold text-white text-base">Submit Revised Answer</h3>
-          <p className="text-xs text-slate-400 mt-1">
+          <h3 className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>
+            Submit Revised Answer
+          </h3>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
             Incorporate missing concepts and structure your reasoning clearly using the STAR framework.
           </p>
         </div>
@@ -72,67 +79,95 @@ export const PracticePage: React.FC = () => {
             rows={5}
             value={revisedAnswer}
             onChange={(e) => setRevisedAnswer(e.target.value)}
-            placeholder="Type your revised, improved answer incorporating trade-offs and edge cases..."
+            placeholder="Type your revised, improved answer incorporating trade-offs and edge cases…"
             required
-            className="w-full px-4 py-3 rounded-2xl bg-slate-800 border border-slate-700 text-white text-xs focus:border-blue-500 focus:outline-none leading-relaxed"
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              borderRadius: 14,
+              background: 'var(--bg-muted)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-primary)',
+              fontSize: 13,
+              outline: 'none',
+              lineHeight: 1.6,
+              fontFamily: 'inherit',
+              resize: 'vertical',
+            }}
           />
 
           <button
             type="submit"
             disabled={submitting}
-            className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-blue-600/30 transition disabled:opacity-50"
+            className="px-6 py-3 rounded-[999px] font-semibold text-xs flex items-center gap-2 transition-base hover:opacity-90 disabled:opacity-50 cursor-target"
+            style={{ background: 'var(--color-accent)', color: 'var(--color-accent-text)' }}
           >
             <Send className="h-4 w-4" />
-            {submitting ? 'Re-evaluating Turn...' : 'Submit Revision for Coaching Evaluation'}
+            {submitting ? 'Re-evaluating…' : 'Submit Revision for Coaching Evaluation'}
           </button>
         </form>
       </div>
 
-      {/* Score Comparison Results */}
+      {/* Score comparison */}
       {comparison && (
-        <div className="p-8 rounded-3xl bg-slate-900 border border-blue-500/30 shadow-xl space-y-6">
+        <div style={{ ...card, borderColor: 'var(--info)' }} className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider block">Practice Attempt #{comparison.attempt_number}</span>
-              <h3 className="font-bold text-white text-lg">Score Improvement Comparison</h3>
+              <span className="text-xs font-semibold uppercase tracking-wider block" style={{ color: 'var(--info)' }}>
+                Practice Attempt #{comparison.attempt_number}
+              </span>
+              <h3 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
+                Score Improvement Comparison
+              </h3>
             </div>
-            <div className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold flex items-center gap-1.5">
+            <div
+              className="px-3 py-1 rounded-[999px] text-xs font-bold flex items-center gap-1.5"
+              style={{ background: '#DCFCE7', color: '#15803D' }}
+            >
               <TrendingUp className="h-4 w-4" /> Evaluated
             </div>
           </div>
 
-          <p className="text-xs text-slate-300 bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+          <p
+            className="text-xs p-3 rounded-[12px]"
+            style={{ background: 'var(--bg-muted)', color: 'var(--text-secondary)', lineHeight: 1.6 }}
+          >
             {comparison.feedback}
           </p>
 
-          {/* Comparative Table */}
-          <div className="rounded-2xl border border-slate-800 overflow-hidden">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-800/80 uppercase font-semibold text-slate-400 text-[10px]">
-                <tr>
-                  <th className="px-4 py-3">Competency Dimension</th>
-                  <th className="px-4 py-3">Original Score</th>
-                  <th className="px-4 py-3">Revised Score</th>
-                  <th className="px-4 py-3">Improvement</th>
+          <div className="rounded-[14px] overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+            <table className="w-full text-left text-xs" style={{ color: 'var(--text-secondary)' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-muted)' }}>
+                  <th className="px-4 py-3 uppercase text-[10px] font-semibold">Competency Dimension</th>
+                  <th className="px-4 py-3 uppercase text-[10px] font-semibold">Original Score</th>
+                  <th className="px-4 py-3 uppercase text-[10px] font-semibold">Revised Score</th>
+                  <th className="px-4 py-3 uppercase text-[10px] font-semibold">Improvement</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
-                {Object.keys(comparison.new_scores).map((dim) => {
+              <tbody>
+                {Object.keys(comparison.new_scores).map((dim, idx) => {
                   const orig = comparison.original_scores[dim] || 0;
                   const rev = comparison.new_scores[dim] || 0;
                   const delta = rev - orig;
                   return (
-                    <tr key={dim} className="hover:bg-slate-800/30">
-                      <td className="px-4 py-3 font-semibold text-white capitalize">{dim}</td>
+                    <tr
+                      key={dim}
+                      className="transition-base hover:bg-[var(--bg-muted)]"
+                      style={{ borderTop: idx > 0 ? '1px solid var(--border)' : undefined }}
+                    >
+                      <td className="px-4 py-3 font-semibold capitalize" style={{ color: 'var(--text-primary)' }}>
+                        {dim}
+                      </td>
                       <td className="px-4 py-3">{orig} / 5</td>
-                      <td className="px-4 py-3 font-bold text-blue-400">{rev} / 5</td>
+                      <td className="px-4 py-3 font-bold" style={{ color: 'var(--info)' }}>{rev} / 5</td>
                       <td className="px-4 py-3 font-bold">
                         {delta > 0 ? (
-                          <span className="text-emerald-400">+{delta}</span>
+                          <span style={{ color: 'var(--success)' }}>+{delta}</span>
                         ) : delta === 0 ? (
-                          <span className="text-slate-400">0</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>0</span>
                         ) : (
-                          <span className="text-rose-400">{delta}</span>
+                          <span style={{ color: 'var(--danger)' }}>{delta}</span>
                         )}
                       </td>
                     </tr>
@@ -146,3 +181,5 @@ export const PracticePage: React.FC = () => {
     </div>
   );
 };
+
+export default PracticePage;

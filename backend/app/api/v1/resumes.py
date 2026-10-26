@@ -11,7 +11,9 @@ from app.agents.resume_analysis import resume_analyzer
 from app.schemas.resume import (
     ResumeUploadResponse,
     ResumeUpdateSkillsRequest,
-    JobMatchSchema
+    JobMatchSchema,
+    ATSCheckRequest,
+    ATSAnalysisResponse
 )
 from app.core.config import settings
 
@@ -172,3 +174,76 @@ async def delete_resume(resume_id: str, current_user: User = Depends(get_current
     await db.delete(r)
     await db.commit()
     return {"message": "Resume deleted successfully."}
+
+
+@router.post("/ats-check", response_model=ATSAnalysisResponse)
+async def check_resume_ats_direct(
+    payload: ATSCheckRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if not payload.resume_id:
+        stmt = select(Resume).where(Resume.user_id == current_user.id).order_by(Resume.created_at.desc())
+        res = await db.execute(stmt)
+        resume = res.scalars().first()
+        if not resume:
+            raise HTTPException(status_code=404, detail="No resume uploaded yet. Please upload a resume first.")
+    else:
+        stmt = select(Resume).where(Resume.id == payload.resume_id, Resume.user_id == current_user.id)
+        res = await db.execute(stmt)
+        resume = res.scalar_one_or_none()
+        if not resume:
+            raise HTTPException(status_code=404, detail="Resume not found or does not belong to the current user.")
+
+    resume_text = resume.raw_text or ""
+    if not resume_text and resume.file_path and os.path.exists(resume.file_path):
+        resume_text, _ = resume_analyzer.extract_text(resume.file_path)
+
+    if not resume_text:
+        raise HTTPException(status_code=422, detail="Unable to extract text from resume for analysis.")
+
+    jd_clean = payload.job_description.strip()
+    if not jd_clean:
+        raise HTTPException(status_code=400, detail="Job description cannot be empty or whitespace.")
+
+    analysis = resume_analyzer.perform_comprehensive_ats_check(
+        resume_id=resume.id,
+        resume_file_name=resume.file_name,
+        resume_text=resume_text,
+        parsed_skills=resume.parsed_skills or [],
+        job_description=jd_clean
+    )
+    return ATSAnalysisResponse(**analysis)
+
+@router.post("/{resume_id}/ats-check", response_model=ATSAnalysisResponse)
+async def check_resume_ats(
+    resume_id: str,
+    payload: ATSCheckRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Resume).where(Resume.id == resume_id, Resume.user_id == current_user.id)
+    res = await db.execute(stmt)
+    resume = res.scalar_one_or_none()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found or does not belong to the current user.")
+
+    resume_text = resume.raw_text or ""
+    if not resume_text and resume.file_path and os.path.exists(resume.file_path):
+        resume_text, _ = resume_analyzer.extract_text(resume.file_path)
+
+    if not resume_text:
+        raise HTTPException(status_code=422, detail="Unable to extract text from resume for analysis.")
+
+    jd_clean = payload.job_description.strip()
+    if not jd_clean:
+        raise HTTPException(status_code=400, detail="Job description cannot be empty or whitespace.")
+
+    analysis = resume_analyzer.perform_comprehensive_ats_check(
+        resume_id=resume.id,
+        resume_file_name=resume.file_name,
+        resume_text=resume_text,
+        parsed_skills=resume.parsed_skills or [],
+        job_description=jd_clean
+    )
+    return ATSAnalysisResponse(**analysis)

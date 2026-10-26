@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { HistoryItem } from '../types';
 import {
-  History, Trash2, FileText, AlertCircle,
-  PlayCircle, ShieldAlert, CheckCircle2, ArrowRight
+  History, Trash2, FileText, CheckCircle2,
+  PlayCircle, ShieldAlert,
 } from 'lucide-react';
 
 export const InterviewHistoryPage: React.FC = () => {
@@ -23,9 +23,7 @@ export const InterviewHistoryPage: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    loadHistory();
-  }, []);
+  useEffect(() => { loadHistory(); }, []);
 
   const handleDeleteSession = async (sessionId: string) => {
     if (!window.confirm('Delete this interview session and all associated recordings?')) return;
@@ -52,92 +50,125 @@ export const InterviewHistoryPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="space-y-8">
+      {/* Page header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Interview History & Audit Trail</h1>
-          <p className="text-slate-400 text-sm mt-1">Review past sessions, audit evaluation reports, and manage privacy settings.</p>
+          <h1 className="text-2xl font-extrabold" style={{ color: 'var(--text-primary)' }}>
+            Interview History
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+            Review past sessions, audit evaluation reports, and manage privacy settings.
+          </p>
         </div>
 
         {history.length > 0 && (
           <button
             onClick={handleDeleteAllData}
-            className="px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold flex items-center gap-1.5 transition"
+            className="px-4 py-2 rounded-[12px] text-xs font-semibold flex items-center gap-1.5 transition-base hover:opacity-80 cursor-target"
+            style={{ background: '#FEE2E2', color: 'var(--danger)', border: '1px solid #FECACA' }}
           >
             <ShieldAlert className="h-4 w-4" /> Erase All My Data
           </button>
         )}
       </div>
 
+      {/* Success message */}
       {message && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+        <div
+          className="p-4 rounded-[14px] text-xs flex items-center gap-2"
+          style={{ background: '#DCFCE7', color: '#15803D', border: '1px solid #BBF7D0' }}
+        >
           <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span>{message}</span>
+          {message}
         </div>
       )}
 
+      {/* Content */}
       {loading ? (
-        <p className="text-xs text-slate-500 py-10 text-center">Loading interview history...</p>
+        <p className="text-xs py-10 text-center" style={{ color: 'var(--text-secondary)' }}>
+          Loading interview history…
+        </p>
       ) : history.length > 0 ? (
-        <div className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
-          <div className="divide-y divide-slate-800">
-            {history.map((s) => (
-              <div key={s.session_id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-slate-800/20 transition">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-white text-base">{s.target_role}</h3>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                      s.status === 'completed'
-                        ? 'bg-emerald-500/10 text-emerald-400'
-                        : 'bg-amber-500/10 text-amber-400'
-                    }`}>
-                      {s.status}
+        <div className="rounded-[28px] overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+          {history.map((s, idx) => (
+            <div
+              key={s.session_id}
+              className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-base hover:bg-[var(--bg-muted)]"
+              style={{
+                borderTop: idx !== 0 ? '1px solid var(--border)' : undefined,
+              }}
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>
+                    {s.target_role}
+                  </h3>
+                  <span
+                    className="text-[10px] px-2 py-0.5 rounded-[999px] font-bold uppercase"
+                    style={{
+                      background: s.status === 'completed' ? '#DCFCE7' : '#FEF9C3',
+                      color: s.status === 'completed' ? '#15803D' : '#A16207',
+                    }}
+                  >
+                    {s.status}
+                  </span>
+                </div>
+                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  {new Date(s.created_at).toLocaleDateString()} · {s.total_questions} Questions · Difficulty Lvl {s.final_difficulty}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                {s.overall_score !== undefined && (
+                  <div className="text-right">
+                    <span className="text-[10px] uppercase tracking-wider block" style={{ color: 'var(--text-secondary)' }}>
+                      Score
+                    </span>
+                    <span className="text-base font-extrabold" style={{ color: 'var(--info)' }}>
+                      {s.overall_score}%
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400">
-                    Recorded on {new Date(s.created_at).toLocaleDateString()} • {s.total_questions} Questions • Difficulty Lvl {s.final_difficulty}
-                  </p>
-                </div>
+                )}
 
-                <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                  {s.overall_score !== undefined && (
-                    <div className="text-right">
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Score</span>
-                      <span className="text-base font-extrabold text-blue-400">{s.overall_score}%</span>
-                    </div>
-                  )}
-
-                  {s.has_report && (
-                    <Link
-                      to={`/reports/${s.session_id}`}
-                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-lg shadow-blue-600/30"
-                    >
-                      <FileText className="h-3.5 w-3.5" /> View Report
-                    </Link>
-                  )}
-
-                  <button
-                    onClick={() => handleDeleteSession(s.session_id)}
-                    className="p-2 text-slate-500 hover:text-rose-400 transition"
-                    title="Delete session"
+                {s.has_report && (
+                  <Link
+                    to={`/reports/${s.session_id}`}
+                    className="px-4 py-2 rounded-[12px] text-xs font-semibold flex items-center gap-1.5 transition-base hover:opacity-90 cursor-target"
+                    style={{ background: 'var(--color-accent)', color: 'var(--color-accent-text)' }}
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+                    <FileText className="h-3.5 w-3.5" /> View Report
+                  </Link>
+                )}
+
+                <button
+                  onClick={() => handleDeleteSession(s.session_id)}
+                  className="p-2 rounded-lg transition-base cursor-target"
+                  style={{ color: 'var(--text-secondary)' }}
+                  title="Delete session"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       ) : (
-        <div className="p-12 rounded-3xl bg-slate-900 border border-slate-800 text-center space-y-4">
-          <History className="h-12 w-12 text-slate-600 mx-auto" />
-          <h3 className="text-lg font-bold text-white">No Interview History Yet</h3>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+        <div
+          className="p-12 rounded-[28px] text-center space-y-4"
+          style={{ background: 'var(--bg-muted)' }}
+        >
+          <History className="h-12 w-12 mx-auto" style={{ color: 'var(--text-secondary)', opacity: 0.4 }} />
+          <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+            No Interview History Yet
+          </h3>
+          <p className="text-xs max-w-sm mx-auto" style={{ color: 'var(--text-secondary)' }}>
             You haven't conducted any mock interviews yet. Set up a new session to get started.
           </p>
           <Link
             to="/setup"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[999px] text-xs font-semibold transition-base hover:opacity-90 cursor-target"
+            style={{ background: 'var(--color-accent)', color: 'var(--color-accent-text)' }}
           >
             <PlayCircle className="h-4 w-4" /> Start Interview Now
           </Link>
@@ -146,3 +177,5 @@ export const InterviewHistoryPage: React.FC = () => {
     </div>
   );
 };
+
+export default InterviewHistoryPage;

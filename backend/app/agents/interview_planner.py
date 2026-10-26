@@ -23,66 +23,141 @@ class InterviewPlannerAgent:
         num_questions: int,
         starting_diff: int
     ) -> List[Dict[str, Any]]:
-        questions = []
-        lead_skill = skills[0] if skills else "System Architecture"
-        second_skill = skills[1] if len(skills) > 1 else "Database Design"
-        lead_project = projects[0]["name"] if projects else "Your flagship engineering project"
+        pool = []
+        asked_texts = set()
 
-        pool = [
-            {
-                "round": "technical",
-                "text": f"In your project '{lead_project}', what trade-offs influenced your architectural design, and how did you utilize {lead_skill} to maintain performance under load?",
-                "diff": starting_diff,
-                "competency": "Technical Architecture & Design",
-                "concepts": [lead_skill, "Trade-offs", "Scalability", "Bottlenecks"],
-                "source": f"Resume Project: {lead_project}"
-            },
-            {
-                "round": "technical",
-                "text": f"When implementing data persistence with {second_skill}, how did you ensure data consistency, indexing efficiency, and fault tolerance?",
-                "diff": starting_diff,
-                "competency": "Data Engineering & Reliability",
-                "concepts": [second_skill, "Indexes", "ACID Transactions", "Concurrency"],
-                "source": f"Resume Skill: {second_skill}"
-            },
-            {
-                "round": "behavioral",
-                "text": "Describe a scenario where you faced conflicting technical priorities or tight deadlines with product stakeholders. How did you negotiate scope and deliver?",
-                "diff": 3,
-                "competency": "Stakeholder Communication & Prioritization",
-                "concepts": ["Prioritization", "Trade-offs", "Clear Communication", "Resolution"],
-                "source": "Behavioral Evaluation"
-            },
-            {
-                "round": "situational",
-                "text": f"Suppose your production service for {target_role} suddenly experiences a 5x surge in latency and 500 error spikes. Walk me through your step-by-step triage and incident response.",
-                "diff": min(5, starting_diff + 1),
-                "competency": "Incident Management & Problem Solving",
-                "concepts": ["Root Cause Analysis", "Observability/Logs", "Rollback/Mitigation", "Post-mortem"],
-                "source": f"Role Scenario: {target_role}"
-            },
-            {
-                "round": "hr",
-                "text": f"What motivates you to pursue this {target_role} role at this stage of your career, and how do your technical aspirations align with our engineering culture?",
-                "diff": 2,
-                "competency": "Culture Fit & Career Alignment",
-                "concepts": ["Career Progression", "Cultural Alignment", "Core Values"],
-                "source": "HR Alignment"
-            }
-        ]
+        def add_q(round_type: str, text: str, diff: int, competency: str, concepts: List[str], source: str):
+            if text not in asked_texts:
+                asked_texts.add(text)
+                pool.append({
+                    "round": round_type,
+                    "text": text,
+                    "diff": diff,
+                    "competency": competency,
+                    "concepts": concepts,
+                    "source": source
+                })
 
-        # Filter according to selected rounds and truncate to num_questions
+        # Project-specific questions
+        for idx, p in enumerate(projects[:3]):
+            p_name = p.get("name", f"Project {idx+1}")
+            p_techs = p.get("technologies", [])
+            tech_mention = p_techs[0] if p_techs else "your core technology stack"
+            add_q(
+                "technical",
+                f"In your project '{p_name}', what major architectural trade-offs did you make, and how did you leverage {tech_mention} to maintain low latency and high availability under peak load?",
+                starting_diff,
+                "Technical Architecture & System Design",
+                [tech_mention, "Architecture", "Trade-offs", "Scalability"],
+                f"Resume Project: {p_name}"
+            )
+
+        # Skill-specific technical questions
+        for idx, s in enumerate(skills[:8]):
+            diff_level = min(5, max(1, starting_diff + (idx % 3 - 1)))
+            add_q(
+                "technical",
+                f"When designing scalable backend systems utilizing {s}, how do you approach performance optimization, concurrency, and failure recovery?",
+                diff_level,
+                f"Deep Dive: {s}",
+                [s, "Concurrency", "Optimization", "Failure Recovery"],
+                f"Resume Skill: {s}"
+            )
+            add_q(
+                "technical",
+                f"Can you explain a complex bug or performance bottleneck you encountered while working with {s}, and the methodology you used to diagnose and resolve it?",
+                diff_level,
+                f"Troubleshooting & Debugging: {s}",
+                [s, "Root Cause Analysis", "Profiling", "Resolution"],
+                f"Resume Skill: {s}"
+            )
+
+        # General technical questions
+        add_q(
+            "technical",
+            "How do you approach automated testing and continuous integration in a distributed microservices environment to ensure zero-downtime releases?",
+            starting_diff,
+            "DevOps, CI/CD & Reliability",
+            ["CI/CD", "Automated Testing", "Zero Downtime", "Canary Deployment"],
+            "Software Reliability Principles"
+        )
+        add_q(
+            "technical",
+            "Walk me through your strategy for database indexing, query optimization, and transaction isolation when scaling a relational database to millions of rows.",
+            min(5, starting_diff + 1),
+            "Database Scalability & Performance",
+            ["Indexes", "Query Optimization", "Transaction Isolation", "Connection Pooling"],
+            "Database Engineering"
+        )
+
+        # Behavioral questions
+        add_q(
+            "behavioral",
+            "Describe a challenging situation where you faced conflicting technical priorities or a tight product deadline. How did you negotiate scope, align stakeholders, and deliver?",
+            3,
+            "Stakeholder Negotiation & Prioritization",
+            ["Prioritization", "Scope Negotiation", "Clear Communication", "Delivery"],
+            "Behavioral Evaluation (STAR)"
+        )
+        add_q(
+            "behavioral",
+            "Tell me about a time when you strongly disagreed with a team member or technical lead regarding an architectural decision. How did you articulate your perspective and reach consensus?",
+            3,
+            "Technical Conflict & Consensus Building",
+            ["Technical Communication", "Empathy", "Data-driven Consensus", "Collaboration"],
+            "Team Dynamics"
+        )
+        add_q(
+            "behavioral",
+            "Can you share an experience where a project or release did not go as planned? What went wrong, how did you communicate with leadership, and what did you learn?",
+            3,
+            "Accountability & Growth Mindset",
+            ["Accountability", "Post-mortem", "Resilience", "Continuous Improvement"],
+            "Leadership & Resilience"
+        )
+
+        # Situational questions
+        add_q(
+            "situational",
+            f"Suppose a mission-critical production service for {target_role} experiences a sudden 5x latency surge and database connection pool exhaustion. Walk me through your step-by-step triage and incident mitigation process.",
+            min(5, starting_diff + 1),
+            "Production Incident Management",
+            ["Triage", "Telemetry/Logs", "Mitigation", "Root Cause Analysis"],
+            f"Role Scenario: {target_role}"
+        )
+        add_q(
+            "situational",
+            f"Imagine you are assigned to refactor a legacy monolithic application for {target_role} with zero test coverage and active users. What is your incremental migration roadmap to prevent regression?",
+            starting_diff,
+            "Legacy Modernization & Architecture",
+            ["Strangler Fig Pattern", "Test Harness", "Incremental Migration", "Risk Mitigation"],
+            "System Modernization"
+        )
+
+        # HR & Cultural Alignment questions
+        add_q(
+            "hr",
+            f"What specifically motivates you to pursue this {target_role} position at this point in your career, and what engineering values matter most to you in your daily work?",
+            2,
+            "Career Alignment & Core Motivation",
+            ["Career Goals", "Engineering Values", "Motivation"],
+            "HR Alignment"
+        )
+        add_q(
+            "hr",
+            "How do you keep your technical skills current in the rapidly evolving technology landscape, and how do you share knowledge or mentor teammates?",
+            2,
+            "Continuous Learning & Mentorship",
+            ["Continuous Learning", "Knowledge Sharing", "Mentorship"],
+            "Team Culture"
+        )
+
+        # Filter according to selected rounds
         selected = [q for q in pool if q["round"] in rounds]
+        # If rounds filter is too restrictive, include top items from pool
         if len(selected) < num_questions:
-            # Add general technical design questions
-            selected.append({
-                "round": "technical",
-                "text": "How do you approach writing clean, maintainable, and testable code in distributed systems, and what CI/CD practices do you consider essential?",
-                "diff": starting_diff,
-                "competency": "Code Quality & DevOps",
-                "concepts": ["Unit Testing", "CI/CD", "Modularity", "Code Review"],
-                "source": "Software Engineering Principles"
-            })
+            remaining = [q for q in pool if q not in selected]
+            selected.extend(remaining[:num_questions - len(selected)])
 
         selected = selected[:num_questions]
 
@@ -147,9 +222,11 @@ JSON format:
             for q in questions:
                 if "id" not in q:
                     q["id"] = str(uuid.uuid4())
-            return questions[:num_questions]
+            if len(questions) >= num_questions:
+                return questions[:num_questions]
+            else:
+                return self._generate_fallback_plan(target_role, skills, projects, rounds, num_questions, starting_diff)
         except Exception:
-            # Reliable fallback
             return self._generate_fallback_plan(target_role, skills, projects, rounds, num_questions, starting_diff)
 
 interview_planner = InterviewPlannerAgent()

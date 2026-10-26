@@ -107,6 +107,10 @@ class FeedbackCoachingAgent:
         }
 
     def generate_pdf_report(self, session_id: str, report_data: Dict[str, Any], output_path: str):
+        from app.services.pdf_generator import generate_styled_pdf_report
+        return generate_styled_pdf_report(session_id, report_data, output_path)
+
+    def _old_generate_pdf_report(self, session_id: str, report_data: Dict[str, Any], output_path: str):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         c = canvas.Canvas(output_path, pagesize=letter)
         width, height = letter
@@ -166,7 +170,7 @@ class FeedbackCoachingAgent:
         c.setFont("Helvetica", 10)
         c.setFillColor(colors.HexColor("#1e293b"))
         for s in report_data.get("strengths", [])[:3]:
-            c.drawString(60, y_offset, f"• {s}")
+            c.drawString(60, y_offset, f"- {s}")
             y_offset -= 15
 
         y_offset -= 8
@@ -177,7 +181,7 @@ class FeedbackCoachingAgent:
         c.setFont("Helvetica", 10)
         c.setFillColor(colors.HexColor("#1e293b"))
         for w in report_data.get("weaknesses", [])[:3]:
-            c.drawString(60, y_offset, f"• {w}")
+            c.drawString(60, y_offset, f"- {w}")
             y_offset -= 15
 
         # Recommended Practice
@@ -189,7 +193,7 @@ class FeedbackCoachingAgent:
         c.setFont("Helvetica", 10)
         c.setFillColor(colors.HexColor("#1e293b"))
         for ex in report_data.get("practice_exercises", [])[:2]:
-            c.drawString(60, y_offset, f"• {ex[:90]}")
+            c.drawString(60, y_offset, f"- {ex[:90]}")
             y_offset -= 15
 
         # Footer Disclaimer

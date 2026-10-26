@@ -1,3 +1,4 @@
+from app.schemas.proctoring import ProctoringSummarySchema
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from datetime import datetime
@@ -41,6 +42,7 @@ class InterviewReportResponse(BaseModel):
     disclaimer: str
     pdf_download_url: Optional[str] = None
     questions: List[QuestionReviewSchema] = []
+    proctoring: Optional[ProctoringSummarySchema] = None
 
     class Config:
         from_attributes = True

@@ -227,6 +227,8 @@ async def start_interview(
     session = res.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
+    if session.status == "terminated_proctoring":
+        raise HTTPException(status_code=400, detail="Interview session has been terminated due to an integrity violation.")
 
     # Save consent
     consent = ConsentRecord(
@@ -286,6 +288,8 @@ async def submit_answer(
     session = res.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
+    if session.status == "terminated_proctoring":
+        raise HTTPException(status_code=400, detail="Interview session has been terminated due to a proctoring violation. Further answers cannot be submitted.")
 
     res_action = await interview_orchestrator.handle_candidate_turn(
         db=db,
@@ -308,6 +312,8 @@ async def repeat_question(
     session = res.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
+    if session.status == "terminated_proctoring":
+        raise HTTPException(status_code=400, detail="Interview session has been terminated due to a proctoring violation.")
 
     q_stmt = (
         select(InterviewQuestion)
@@ -351,6 +357,8 @@ async def clarify_question(
     session = res.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
+    if session.status == "terminated_proctoring":
+        raise HTTPException(status_code=400, detail="Interview session has been terminated due to a proctoring violation.")
 
     q_stmt = (
         select(InterviewQuestion)
@@ -397,6 +405,8 @@ async def skip_question(
     session = res.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
+    if session.status == "terminated_proctoring":
+        raise HTTPException(status_code=400, detail="Interview session has been terminated due to a proctoring violation.")
 
     q_stmt = (
         select(InterviewQuestion)

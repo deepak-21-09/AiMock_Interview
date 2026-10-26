@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
@@ -41,3 +41,43 @@ class ResumeUploadResponse(BaseModel):
 
 class ResumeUpdateSkillsRequest(BaseModel):
     skills: List[str]
+
+# ATS Checker Schemas
+class ATSCheckRequest(BaseModel):
+    resume_id: Optional[str] = None
+    job_description: str = Field(..., min_length=20, max_length=15000)
+
+class MatchingSkillDetail(BaseModel):
+    skill: str
+    identified_in_resume: bool = True
+    evidence_snippet: Optional[str] = None
+
+class MissingSkillDetail(BaseModel):
+    skill: str
+    why_it_matters: str
+    requirement_type: str = "Required"  # "Required" or "Preferred"
+    suggested_steps: str
+
+class CategoryComparison(BaseModel):
+    category: str
+    required_items: List[str] = []
+    demonstrated_items: List[str] = []
+    missing_items: List[str] = []
+    status: str = "Partially Met"  # "Fully Met", "Partially Met", "Needs Attention"
+
+class ImprovementSuggestion(BaseModel):
+    category: str  # e.g. "Projects & Experience", "Keywords & Terminology", "Measurable Impact", "Bullet Points"
+    suggestion: str
+    impact: str = "High"  # "High", "Medium", "Recommended"
+
+class ATSAnalysisResponse(BaseModel):
+    resume_id: str
+    resume_file_name: str
+    match_score: int  # 0 to 100
+    score_explanation: str
+    disclaimer: str
+    matching_skills: List[MatchingSkillDetail] = []
+    missing_skills: List[MissingSkillDetail] = []
+    requirement_breakdown: List[CategoryComparison] = []
+    improvement_suggestions: List[ImprovementSuggestion] = []
+    analyzed_at: datetime

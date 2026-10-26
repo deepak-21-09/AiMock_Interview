@@ -2,10 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { QuestionDetail, TurnActionResponse } from '../types';
+import { ProctoringEngine, ProctoringState } from '../services/proctoring/proctoringEngine';
+import { ProctoringIndicator } from '../components/ProctoringIndicator';
+import { ProctoringConsentModal } from '../components/ProctoringConsentModal';
+import { ProctoringTerminatedModal } from '../components/ProctoringTerminatedModal';
 import {
-  Mic, MicOff, Camera, CameraOff, Volume2,
-  RotateCcw, HelpCircle, SkipForward, Send,
-  StopCircle, Radio, Clock, Bot, AlertCircle, Sparkles, CheckCircle2
+  Mic, Camera, Volume2, RotateCcw, HelpCircle,
+  SkipForward, Send, StopCircle, Radio, Clock,
+  Bot, AlertCircle, Sparkles, CheckCircle2, AlertTriangle,
+  RefreshCw, ShieldCheck
 } from 'lucide-react';
 
 export const InterviewRoomPage: React.FC = () => {
@@ -20,14 +25,37 @@ export const InterviewRoomPage: React.FC = () => {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [interviewerMessage, setInterviewerMessage] = useState<string>('');
   const [notification, setNotification] = useState<string>('');
+  const [answeredQuestionIds, setAnsweredQuestionIds] = useState<string[]>([]);
 
-  // Media & Recording state
+  // Media & Device state
   const [isRecording, setIsRecording] = useState<boolean>(false);
-  const [cameraEnabled, setCameraEnabled] = useState<boolean>(true);
-  const [micEnabled, setMicEnabled] = useState<boolean>(true);
+  const [mediaDisconnected, setMediaDisconnected] = useState<'camera' | 'microphone' | null>(null);
+  const [cameraActive, setCameraActive] = useState<boolean>(false);
+  const [micActive, setMicActive] = useState<boolean>(false);
+  const [reconnectingMedia, setReconnectingMedia] = useState<boolean>(false);
   const [timerSeconds, setTimerSeconds] = useState<number>(0);
   const [typedAnswer, setTypedAnswer] = useState<string>('');
   const [showTextFallback, setShowTextFallback] = useState<boolean>(false);
+
+  // Proctoring state
+  const proctoringEngineRef = useRef<ProctoringEngine | null>(null);
+  const [proctoringState, setProctoringState] = useState<ProctoringState>({
+    status: 'initializing',
+    faceCount: 1,
+    activeWarningType: null,
+    activeWarningMessage: null,
+    graceSecondsRemaining: null,
+    tabSwitchCount: 0,
+    isTerminated: false,
+    terminationReason: null,
+    detectorReady: false,
+    errorMessage: null,
+  });
+  const [showConsentModal, setShowConsentModal] = useState<boolean>(() => {
+    return localStorage.getItem('proctoring_consent') !== 'true';
+  });
+  const [isTerminated, setIsTerminated] = useState<boolean>(false);
+  const [terminationReason, setTerminationReason] = useState<string | null>(null);
 
   // References
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -36,74 +64,138 @@ export const InterviewRoomPage: React.FC = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<any>(null);
 
-  // Fetch initial session state
+  // Fetch initial session state and support refresh recovery
   const fetchSession = async () => {
     if (!sessionId) return;
     try {
       const data = await api.getInterviewDetail(sessionId);
       setSessionDetail(data);
       setCurrentDifficulty(data.current_difficulty);
+
+      if (data.status === 'terminated_proctoring') {
+        setIsTerminated(true);
+        setTerminationReason('Interview session was terminated due to an integrity violation.');
+        setLoading(false);
+        return;
+      }
+
+      if (data.status === 'completed' || (!data.current_question && data.status !== 'draft')) {
+        navigate(`/reports/${sessionId}`);
+        return;
+      }
+
       if (data.current_question) {
         setCurrentQuestion(data.current_question);
         speakQuestion(data.current_question.question_text);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load session details:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Webcam & Microphone initialization with disconnect listeners
+  const initWebcam = async () => {
+    setReconnectingMedia(true);
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true
+      });
+      streamRef.current = stream;
+
+      const videoTracks = stream.getVideoTracks();
+      const audioTracks = stream.getAudioTracks();
+
+      if (videoTracks.length > 0) {
+        setCameraActive(true);
+        videoTracks[0].onended = () => {
+          setCameraActive(false);
+          setMediaDisconnected('camera');
+        };
+      }
+
+      if (audioTracks.length > 0) {
+        setMicActive(true);
+        audioTracks[0].onended = () => {
+          setMicActive(false);
+          setMediaDisconnected('microphone');
+        };
+      }
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+
+        // Start client-side proctoring monitoring
+        if (sessionId) {
+          if (!proctoringEngineRef.current) {
+            const engine = new ProctoringEngine(sessionId);
+            proctoringEngineRef.current = engine;
+            engine.subscribe((pState) => {
+              setProctoringState(pState);
+              if (pState.isTerminated) {
+                setIsTerminated(true);
+                setTerminationReason(pState.terminationReason);
+                setIsRecording(false);
+              }
+            });
+          }
+
+          if (localStorage.getItem('proctoring_consent') === 'true') {
+            proctoringEngineRef.current.start(videoRef.current, stream);
+          }
+        }
+      }
+
+      setMediaDisconnected(null);
+    } catch (e) {
+      console.warn('Media devices could not be initialized or permission denied:', e);
+      setMediaDisconnected('camera');
+    } finally {
+      setReconnectingMedia(false);
+    }
+  };
+
+  const stopWebcam = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => {
+        t.onended = null;
+        t.stop();
+      });
+      streamRef.current = null;
+    }
+    setCameraActive(false);
+    setMicActive(false);
   };
 
   useEffect(() => {
     fetchSession();
     initWebcam();
 
+    const handleDeviceChange = () => {
+      if (streamRef.current) {
+        const hasVideo = streamRef.current.getVideoTracks().some(t => t.readyState === 'live');
+        const hasAudio = streamRef.current.getAudioTracks().some(t => t.readyState === 'live');
+        if (!hasVideo) setMediaDisconnected('camera');
+        if (!hasAudio) setMediaDisconnected('microphone');
+      }
+    };
+
+    navigator.mediaDevices?.addEventListener('devicechange', handleDeviceChange);
+
     return () => {
+      proctoringEngineRef.current?.stop();
       stopWebcam();
+      navigator.mediaDevices?.removeEventListener('devicechange', handleDeviceChange);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     };
   }, [sessionId]);
-
-  // Webcam initialization
-  const initWebcam = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (e) {
-      console.warn('Webcam permission not granted or available in this context:', e);
-    }
-  };
-
-  const stopWebcam = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-    }
-  };
-
-  const toggleCamera = () => {
-    if (streamRef.current) {
-      const videoTracks = streamRef.current.getVideoTracks();
-      if (videoTracks.length > 0) {
-        const nextState = !videoTracks[0].enabled;
-        videoTracks[0].enabled = nextState;
-        setCameraEnabled(nextState);
-      }
-    }
-  };
-
-  const toggleMic = () => {
-    if (streamRef.current) {
-      const audioTracks = streamRef.current.getAudioTracks();
-      if (audioTracks.length > 0) {
-        const nextState = !audioTracks[0].enabled;
-        audioTracks[0].enabled = nextState;
-        setMicEnabled(nextState);
-      }
-    }
-  };
 
   // Text-To-Speech for Question Playback
   const speakQuestion = (text: string) => {
@@ -118,7 +210,8 @@ export const InterviewRoomPage: React.FC = () => {
 
   // Recording Controls
   const startRecording = () => {
-    if (!streamRef.current) return;
+    if (isTerminated || proctoringState.isTerminated) return;
+    if (!streamRef.current || mediaDisconnected) return;
     try {
       audioChunksRef.current = [];
       const mediaRecorder = new MediaRecorder(streamRef.current);
@@ -159,15 +252,32 @@ export const InterviewRoomPage: React.FC = () => {
         reader.readAsDataURL(audioBlob);
       };
 
-      mediaRecorderRef.current.stop();
+      try {
+        if (mediaRecorderRef.current.state !== 'inactive') {
+          mediaRecorderRef.current.stop();
+        }
+      } catch {
+        resolve('');
+      }
       setIsRecording(false);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     });
   };
 
-  // Handle Turn Submission
+  // Turn Submission with duplication guards and state preservation
   const handleSubmitAnswer = async () => {
-    if (!sessionId || !currentQuestion) return;
+    if (isTerminated || proctoringState.isTerminated) {
+      setNotification('Interview session has been terminated due to an integrity violation.');
+      return;
+    }
+    if (submitting || !sessionId || !currentQuestion) return;
+
+    // Check media availability
+    if (mediaDisconnected && !typedAnswer.trim()) {
+      setNotification('Required media is disconnected. Please reconnect your devices or type your answer below.');
+      return;
+    }
+
     setSubmitting(true);
     setNotification('Transcribing and evaluating candidate response...');
 
@@ -176,35 +286,44 @@ export const InterviewRoomPage: React.FC = () => {
       base64Audio = await stopRecordingAndGetBase64();
     }
 
+    // Require either audio or text response
+    if (!base64Audio && !typedAnswer.trim()) {
+      setNotification('Please record your spoken answer or enter a typed response before submitting.');
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const res: TurnActionResponse = await api.submitAnswer(sessionId, {
         question_id: currentQuestion.id,
         audio_base64: base64Audio || undefined,
-        text_answer: typedAnswer || undefined,
+        text_answer: typedAnswer.trim() || undefined,
         duration_seconds: timerSeconds,
       });
 
-      handleTurnAction(res);
-    } catch (err: any) {
-      setNotification(err.response?.data?.detail || 'Error processing response.');
-    } finally {
-      setSubmitting(false);
+      // Mark question as answered in client tracking
+      setAnsweredQuestionIds(prev => [...prev, currentQuestion.id]);
       setTypedAnswer('');
       setTimerSeconds(0);
+      handleTurnAction(res);
+    } catch (err: any) {
+      setNotification(err.response?.data?.detail || 'Error submitting response. Your answer has been preserved; please retry.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleTurnAction = (res: TurnActionResponse) => {
     setCurrentDifficulty(res.current_difficulty);
 
-    if (res.is_concluded) {
+    if (res.is_concluded || res.action === 'concluded') {
       navigate(`/reports/${sessionId}`);
       return;
     }
 
     if (res.action === 'repeat_prompt_unreliable') {
       setInterviewerMessage(res.message);
-      setNotification('Audio unclear. Please repeat your answer or type it.');
+      setNotification('Audio unclear or missing. Please repeat your answer or type it.');
       speakQuestion(res.message);
       return;
     }
@@ -218,16 +337,26 @@ export const InterviewRoomPage: React.FC = () => {
     }
 
     if (res.action === 'next_question' && res.next_question) {
-      setCurrentQuestion(res.next_question);
-      setInterviewerMessage(res.message);
-      setNotification(`Advanced to Question #${res.next_question.order_index} (Difficulty Level ${res.current_difficulty})`);
-      speakQuestion(res.next_question.question_text);
+      // Prevent repeated question display
+      if (res.next_question.id !== currentQuestion?.id) {
+        setCurrentQuestion(res.next_question);
+        setInterviewerMessage(res.message);
+        setNotification(`Advanced to Question #${res.next_question.order_index} (Difficulty Level ${res.current_difficulty})`);
+        speakQuestion(res.next_question.question_text);
+      } else {
+        fetchSession();
+      }
       return;
+    }
+
+    // If next question is null or interview concluded
+    if (!res.next_question) {
+      navigate(`/reports/${sessionId}`);
     }
   };
 
   const handleRepeat = async () => {
-    if (!sessionId) return;
+    if (isTerminated || !sessionId || submitting) return;
     setSubmitting(true);
     try {
       const res = await api.repeatQuestion(sessionId);
@@ -241,7 +370,7 @@ export const InterviewRoomPage: React.FC = () => {
   };
 
   const handleClarify = async () => {
-    if (!sessionId) return;
+    if (isTerminated || !sessionId || submitting) return;
     setSubmitting(true);
     try {
       const res = await api.clarifyQuestion(sessionId);
@@ -253,7 +382,7 @@ export const InterviewRoomPage: React.FC = () => {
   };
 
   const handleSkip = async () => {
-    if (!sessionId) return;
+    if (isTerminated || !sessionId || submitting) return;
     setSubmitting(true);
     try {
       const res = await api.skipQuestion(sessionId);
@@ -264,15 +393,23 @@ export const InterviewRoomPage: React.FC = () => {
   };
 
   const handleEndInterview = async () => {
-    if (!sessionId) return;
+    if (!sessionId || submitting) return;
     if (window.confirm('Are you sure you want to conclude the interview and view your evaluation report?')) {
       setSubmitting(true);
       try {
-        const res = await api.endInterview(sessionId);
+        await api.endInterview(sessionId);
         navigate(`/reports/${sessionId}`);
       } finally {
         setSubmitting(false);
       }
+    }
+  };
+
+  const handleConsent = () => {
+    localStorage.setItem('proctoring_consent', 'true');
+    setShowConsentModal(false);
+    if (videoRef.current && streamRef.current && proctoringEngineRef.current) {
+      proctoringEngineRef.current.start(videoRef.current, streamRef.current);
     }
   };
 
@@ -293,20 +430,53 @@ export const InterviewRoomPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* Proctoring Modals */}
+      <ProctoringConsentModal
+        isOpen={showConsentModal}
+        onConsent={handleConsent}
+      />
+      <ProctoringTerminatedModal
+        isOpen={isTerminated}
+        sessionId={sessionId!}
+        reason={terminationReason}
+      />
+
+      {/* Proctoring Banner Indicator */}
+      <ProctoringIndicator state={proctoringState} />
+      {/* Media Disconnected Warning Banner */}
+      {mediaDisconnected && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs sm:text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-amber-500/5">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
+            <span>
+              <strong>Required {mediaDisconnected === 'camera' ? 'Camera' : 'Microphone'} Disconnected:</strong>{' '}
+              The continuous media feed stopped. Please check your hardware permissions or click Reconnect.
+            </span>
+          </div>
+          <button
+            onClick={initWebcam}
+            disabled={reconnectingMedia}
+            className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition shrink-0"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${reconnectingMedia ? 'animate-spin' : ''}`} />
+            {reconnectingMedia ? 'Reconnecting...' : 'Reconnect Device'}
+          </button>
+        </div>
+      )}
+
       {/* Status Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900 border border-slate-800">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping" />
-            <span className="text-xs font-bold text-white uppercase tracking-wider">Live Interview Session</span>
+            <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Interview Active</span>
           </div>
-          <span className="text-xs px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 font-semibold">
-            {sessionDetail?.target_role}
-          </span>
+          <div className="text-xs text-slate-400">
+            Target Role: <span className="text-white font-medium">{sessionDetail?.target_role || 'Software Engineer'}</span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Difficulty Badge */}
+        <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold">
             <span>Adaptive Difficulty:</span>
             <span className="text-white font-bold">Level {currentDifficulty} / 5</span>
@@ -314,7 +484,8 @@ export const InterviewRoomPage: React.FC = () => {
 
           <button
             onClick={handleEndInterview}
-            className="px-3.5 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-semibold transition"
+            disabled={submitting}
+            className="px-3.5 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-semibold transition disabled:opacity-50"
           >
             End Interview
           </button>
@@ -348,48 +519,37 @@ export const InterviewRoomPage: React.FC = () => {
               autoPlay
               playsInline
               muted
-              className={`w-full h-full object-cover ${cameraEnabled ? 'block' : 'hidden'}`}
+              className="w-full h-full object-cover"
             />
-            {!cameraEnabled && (
-              <div className="text-center p-4">
-                <CameraOff className="h-8 w-8 text-slate-600 mx-auto mb-2" />
-                <span className="text-xs text-slate-400">Camera preview paused</span>
-              </div>
-            )}
 
-            {/* In-feed status indicators */}
-            <div className="absolute top-3 left-3 flex items-center gap-2">
-              {isRecording ? (
-                <div className="px-2.5 py-1 rounded-full bg-rose-600/90 backdrop-blur text-white text-[10px] font-bold flex items-center gap-1.5 shadow-lg animate-pulse">
-                  <Radio className="h-3.5 w-3.5" /> ANSWER RECORDING
-                </div>
-              ) : (
-                <div className="px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur text-slate-300 text-[10px] font-semibold border border-slate-700">
-                  READY
-                </div>
-              )}
+            {/* In-feed status indicator */}
+            <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+              <div className="flex items-center gap-2">
+                {isRecording ? (
+                  <div className="px-2.5 py-1 rounded-full bg-rose-600/90 backdrop-blur text-white text-[10px] font-bold flex items-center gap-1.5 shadow-lg animate-pulse">
+                    <Radio className="h-3.5 w-3.5" /> ANSWER RECORDING
+                  </div>
+                ) : (
+                  <div className="px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur text-slate-300 text-[10px] font-semibold border border-slate-700">
+                    READY
+                  </div>
+                )}
+              </div>
+              <div className="pointer-events-auto">
+                <ProctoringIndicator state={proctoringState} />
+              </div>
             </div>
 
-            {/* Controls Overlay */}
-            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-center gap-3 p-2 rounded-2xl bg-slate-900/80 backdrop-blur border border-slate-700/50">
-              <button
-                onClick={toggleCamera}
-                className={`p-2 rounded-xl transition ${
-                  cameraEnabled ? 'bg-slate-800 text-white' : 'bg-rose-500/20 text-rose-400'
-                }`}
-                title="Toggle Camera"
-              >
-                {cameraEnabled ? <Camera className="h-4 w-4" /> : <CameraOff className="h-4 w-4" />}
-              </button>
-              <button
-                onClick={toggleMic}
-                className={`p-2 rounded-xl transition ${
-                  micEnabled ? 'bg-slate-800 text-white' : 'bg-rose-500/20 text-rose-400'
-                }`}
-                title="Toggle Mic"
-              >
-                {micEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-              </button>
+            {/* Device Status Badges (Accidental toggles disabled as continuous access is required) */}
+            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between px-3 py-2 rounded-2xl bg-slate-900/80 backdrop-blur border border-slate-700/50 text-[11px]">
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 rounded-full ${cameraActive ? 'bg-emerald-400' : 'bg-rose-500'}`} />
+                <span className="text-slate-300 font-medium">Camera: {cameraActive ? 'Active' : 'Offline'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 rounded-full ${micActive ? 'bg-emerald-400' : 'bg-rose-500'}`} />
+                <span className="text-slate-300 font-medium">Mic: {micActive ? 'Active' : 'Offline'}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -398,25 +558,31 @@ export const InterviewRoomPage: React.FC = () => {
         <div className="lg:col-span-7 space-y-6">
           {/* Question Card */}
           <div className="p-8 rounded-3xl bg-slate-900 border border-slate-800 space-y-6 shadow-xl">
-            {/* Round & Number Header */}
             <div className="flex items-center justify-between">
-              <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-wider">
-                {currentQuestion?.round_type || 'TECHNICAL'} ROUND
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 font-bold uppercase tracking-wider">
+                  {currentQuestion?.round_type || 'Technical'} Round
+                </span>
+                {currentQuestion?.is_followup && (
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 font-semibold">
+                    Follow-up Probe
+                  </span>
+                )}
+              </div>
               <span className="text-xs text-slate-400 font-medium">
-                Question {currentQuestion?.order_index} of {sessionDetail?.total_planned_questions}
+                Question {currentQuestion?.order_index || 1}
               </span>
             </div>
 
             {/* Question Text */}
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-white leading-relaxed">
-                {currentQuestion?.question_text}
+            <div className="space-y-3">
+              <h2 className="text-lg sm:text-xl font-bold text-white leading-relaxed">
+                {currentQuestion?.question_text || 'Loading next question...'}
               </h2>
               {currentQuestion?.competency_focus && (
-                <span className="text-xs text-slate-400 mt-2 block">
-                  Focus: <span className="text-slate-300 font-medium">{currentQuestion.competency_focus}</span>
-                </span>
+                <p className="text-xs text-slate-400">
+                  Competency Focus: <span className="text-slate-300">{currentQuestion.competency_focus}</span>
+                </p>
               )}
             </div>
 
@@ -429,7 +595,7 @@ export const InterviewRoomPage: React.FC = () => {
             )}
 
             {/* Question Audio Playback Action */}
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex flex-wrap items-center gap-3 pt-2">
               <button
                 onClick={() => currentQuestion && speakQuestion(currentQuestion.question_text)}
                 className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition"
@@ -474,8 +640,8 @@ export const InterviewRoomPage: React.FC = () => {
               {!isRecording ? (
                 <button
                   onClick={startRecording}
-                  disabled={submitting}
-                  className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-blue-600/30 transition disabled:opacity-50"
+                  disabled={submitting || isTerminated || !!mediaDisconnected}
+                  className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-blue-600/30 transition"
                 >
                   <Mic className="h-4 w-4" /> Start Speaking Answer
                 </button>
@@ -490,7 +656,7 @@ export const InterviewRoomPage: React.FC = () => {
 
               <button
                 onClick={handleSubmitAnswer}
-                disabled={submitting || (!isRecording && !typedAnswer && timerSeconds === 0)}
+                disabled={submitting || isTerminated || (!isRecording && !typedAnswer.trim() && timerSeconds === 0)}
                 className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition disabled:opacity-50 ml-auto"
               >
                 <Send className="h-4 w-4" />
@@ -532,3 +698,4 @@ export const InterviewRoomPage: React.FC = () => {
     </div>
   );
 };
+export default InterviewRoomPage;

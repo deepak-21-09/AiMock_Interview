@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Bot, User, FileText, History, Target, LogOut, PlayCircle } from 'lucide-react';
+import { Bot, User, FileText, History, LogOut, PlayCircle, FileSearch } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -29,7 +29,7 @@ export const Navbar: React.FC = () => {
         </Link>
 
         {user ? (
-          <nav className="flex items-center gap-1 sm:gap-4">
+          <nav className="flex items-center gap-1 sm:gap-3">
             <Link
               to="/dashboard"
               data-cursor-label="Dashboard"
@@ -40,15 +40,6 @@ export const Navbar: React.FC = () => {
               Dashboard
             </Link>
             <Link
-              to="/resumes"
-              data-cursor-label="Resumes"
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 cursor-target ${
-                isActive('/resumes') ? 'bg-slate-800 text-blue-400' : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <FileText className="h-4 w-4" /> Resumes
-            </Link>
-            <Link
               to="/setup"
               data-cursor-label="Start"
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 cursor-target ${
@@ -56,6 +47,24 @@ export const Navbar: React.FC = () => {
               }`}
             >
               <PlayCircle className="h-4 w-4" /> Start Interview
+            </Link>
+            <Link
+              to="/ats-checker"
+              data-cursor-label="ATS Checker"
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 cursor-target ${
+                isActive('/ats-checker') ? 'bg-slate-800 text-blue-400 font-semibold' : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <FileSearch className="h-4 w-4 text-indigo-400" /> Resume ATS Checker
+            </Link>
+            <Link
+              to="/resumes"
+              data-cursor-label="Resumes"
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 cursor-target ${
+                isActive('/resumes') ? 'bg-slate-800 text-blue-400' : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <FileText className="h-4 w-4" /> Resumes
             </Link>
             <Link
               to="/history"
@@ -106,3 +115,4 @@ export const Navbar: React.FC = () => {
     </header>
   );
 };
+export default Navbar;

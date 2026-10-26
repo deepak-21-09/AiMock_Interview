@@ -131,7 +131,52 @@ export interface InterviewReport {
   disclaimer: string;
   pdf_download_url: string;
   questions: QuestionReview[];
+  proctoring?: ProctoringSummary;
 }
+
+export interface ProctoringEvent {
+  id?: string;
+  session_id?: string;
+  user_id?: string;
+  event_type: 'multiple_faces' | 'face_absent' | 'looking_away' | 'camera_interruption' | 'tab_switch' | 'unauthorized_object';
+  timestamp: string;
+  confidence_score?: number;
+  duration_seconds: number;
+  severity: 'info' | 'warning' | 'critical' | 'terminal';
+  action_taken: 'warning_displayed' | 'interview_paused' | 'interview_halted';
+  explanation?: string;
+}
+
+export interface ProctoringSummary {
+  total_events: number;
+  warning_count: number;
+  critical_count: number;
+  is_terminated: boolean;
+  termination_reason?: string;
+  events: ProctoringEvent[];
+}
+
+export interface ProctoringTerminationResponse {
+  session_id: string;
+  status: string;
+  message: string;
+  termination_reason: string;
+  terminated_at: string;
+  report_id?: string;
+}
+
+export interface ProctoringConfig {
+  multipleFacesWarningSeconds: number;
+  multipleFacesHaltGraceSeconds: number;
+  faceAbsentWarningSeconds: number;
+  faceAbsentHaltGraceSeconds: number;
+  lookingAwayWarningSeconds: number;
+  lookingAwayYawThreshold: number;
+  cameraRecoveryGraceSeconds: number;
+  maxTabSwitches: number;
+  samplingIntervalMs: number;
+}
+
 
 export interface HistoryItem {
   session_id: string;
@@ -155,4 +200,44 @@ export interface PracticeComparison {
   transcript: string;
   feedback: string;
   created_at: string;
+}
+
+export interface MatchingSkillDetail {
+  skill: string;
+  identified_in_resume: boolean;
+  evidence_snippet?: string;
+}
+
+export interface MissingSkillDetail {
+  skill: string;
+  why_it_matters: string;
+  requirement_type: string;
+  suggested_steps: string;
+}
+
+export interface CategoryComparison {
+  category: string;
+  required_items: string[];
+  demonstrated_items: string[];
+  missing_items: string[];
+  status: string;
+}
+
+export interface ImprovementSuggestion {
+  category: string;
+  suggestion: string;
+  impact: string;
+}
+
+export interface ATSAnalysisResponse {
+  resume_id: string;
+  resume_file_name: string;
+  match_score: number;
+  score_explanation: string;
+  disclaimer: string;
+  matching_skills: MatchingSkillDetail[];
+  missing_skills: MissingSkillDetail[];
+  requirement_breakdown: CategoryComparison[];
+  improvement_suggestions: ImprovementSuggestion[];
+  analyzed_at: string;
 }

@@ -27,6 +27,7 @@ class User(Base):
     sessions = relationship("InterviewSession", back_populates="user", cascade="all, delete-orphan")
     practice_attempts = relationship("PracticeAttempt", back_populates="user", cascade="all, delete-orphan")
     consent_records = relationship("ConsentRecord", back_populates="user", cascade="all, delete-orphan")
+    proctoring_events = relationship("ProctoringEvent", back_populates="user", cascade="all, delete-orphan")
 
 class CandidateProfile(Base):
     __tablename__ = "candidate_profiles"
@@ -89,6 +90,7 @@ class InterviewSession(Base):
     questions = relationship("InterviewQuestion", back_populates="session", cascade="all, delete-orphan", order_by="InterviewQuestion.order_index")
     report = relationship("InterviewReport", back_populates="session", uselist=False, cascade="all, delete-orphan")
     consent_record = relationship("ConsentRecord", back_populates="session", uselist=False)
+    proctoring_events = relationship("ProctoringEvent", back_populates="session", cascade="all, delete-orphan")
 
 class InterviewRound(Base):
     __tablename__ = "interview_rounds"
@@ -111,7 +113,7 @@ class InterviewQuestion(Base):
     parent_question_id = Column(String(36), ForeignKey("interview_questions.id", ondelete="SET NULL"), nullable=True)
     question_text = Column(Text, nullable=False)
     difficulty = Column(Integer, default=3)  # 1 to 5
-    competency_focus = Column(String(128), nullable=True)
+    competency_focus = Column(Text, nullable=True)
     expected_concepts = Column(JSON, default=list)
     source_reference = Column(String(255), nullable=True)  # e.g., "Project: ML Classifier", "JD: Distributed Systems"
     order_index = Column(Integer, default=1)
@@ -254,3 +256,21 @@ class ConsentRecord(Base):
 
     user = relationship("User", back_populates="consent_records")
     session = relationship("InterviewSession", back_populates="consent_record")
+
+
+class ProctoringEvent(Base):
+    __tablename__ = "proctoring_events"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    session_id = Column(String(36), ForeignKey("interview_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_type = Column(String(64), nullable=False)  # multiple_faces, face_absent, looking_away, camera_interruption, tab_switch, unauthorized_object
+    timestamp = Column(DateTime(timezone=True), default=utc_now)
+    confidence_score = Column(Float, nullable=True)
+    duration_seconds = Column(Float, default=0.0)
+    severity = Column(String(32), default="warning")  # info, warning, critical, terminal
+    action_taken = Column(String(64), default="warning_displayed")  # warning_displayed, interview_paused, interview_halted
+    explanation = Column(Text, nullable=True)
+
+    session = relationship("InterviewSession", back_populates="proctoring_events")
+    user = relationship("User", back_populates="proctoring_events")

@@ -1,0 +1,14 @@
+.env
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+*.db
+*.db_backup*
+media/
+.git
+.gitignore
+tests/
+scripts/

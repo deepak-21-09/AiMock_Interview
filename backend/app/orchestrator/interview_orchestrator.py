@@ -5,6 +5,7 @@ from typing import Dict, Any, Optional, List
 import uuid
 
 from app.models.entities import (
+    User,
     InterviewSession,
     InterviewQuestion,
     InterviewAnswer,
@@ -35,7 +36,14 @@ class CentralInterviewOrchestrator:
         duration_seconds: float = 0.0
     ) -> Dict[str, Any]:
         # 1. Fetch Session and Question
-        stmt = select(InterviewSession).where(InterviewSession.id == session_id)
+        stmt = (
+            select(InterviewSession)
+            .options(
+                selectinload(InterviewSession.user).selectinload(User.profile),
+                selectinload(InterviewSession.questions).selectinload(InterviewQuestion.answers).selectinload(InterviewAnswer.evaluation)
+            )
+            .where(InterviewSession.id == session_id)
+        )
         res = await db.execute(stmt)
         session = res.scalar_one_or_none()
         if not session:
@@ -46,6 +54,12 @@ class CentralInterviewOrchestrator:
         curr_question = q_res.scalar_one_or_none()
         if not curr_question:
             raise ValueError("Current question not found.")
+
+        # Guard against client double-submissions or already answered questions
+        if curr_question.status == "answered":
+            return await self._advance_to_next_question(
+                db, session, curr_question, "Answer was already recorded. Advancing to the next question."
+            )
 
         # 2. Ingest audio or text
         audio_path = None
@@ -189,29 +203,38 @@ class CentralInterviewOrchestrator:
         await db.commit()
 
         # 9. Adaptive Decision Rules
-        # Rule A: Follow-up check (Completeness <= 2 or critical missing concept AND < 2 follow-ups asked)
-        if (eval_res["completeness_score"] <= 2 or len(eval_res["missing_concepts"]) >= 2) and curr_question.follow_up_count < 2:
+        root_parent = curr_question
+        if curr_question.is_followup and curr_question.parent_question_id:
+            parent_stmt = select(InterviewQuestion).where(InterviewQuestion.id == curr_question.parent_question_id)
+            parent_res = await db.execute(parent_stmt)
+            parent_obj = parent_res.scalar_one_or_none()
+            if parent_obj:
+                root_parent = parent_obj
+
+        # Rule A: Follow-up check (Completeness <= 2 or critical missing concept AND < 2 follow-ups asked for root parent)
+        if (eval_res["completeness_score"] <= 2 or len(eval_res["missing_concepts"]) >= 2) and root_parent.follow_up_count < 2:
             follow_up_text = interviewer_agent.generate_follow_up(
                 parent_question=curr_question.question_text,
                 candidate_transcript=transcript_text,
                 missing_concepts=eval_res["missing_concepts"],
-                current_diff=session.current_difficulty
+                current_diff=session.current_difficulty,
+                follow_up_num=root_parent.follow_up_count + 1
             )
             # Create follow-up question
             followup_q = InterviewQuestion(
                 session_id=session.id,
                 round_id=curr_question.round_id,
-                parent_question_id=curr_question.id,
+                parent_question_id=root_parent.id,
                 question_text=follow_up_text,
                 difficulty=session.current_difficulty,
-                competency_focus=f"Follow-up: {curr_question.competency_focus}",
+                competency_focus=f"Follow-up: {root_parent.competency_focus}",
                 expected_concepts=eval_res["missing_concepts"][:3],
-                source_reference=f"Follow-up to Q#{curr_question.order_index}",
-                order_index=curr_question.order_index,
+                source_reference=f"Follow-up to Q#{root_parent.order_index}",
+                order_index=root_parent.order_index,
                 is_followup=True,
                 status="pending"
             )
-            curr_question.follow_up_count += 1
+            root_parent.follow_up_count += 1
             db.add(followup_q)
             await db.commit()
             await db.refresh(followup_q)
@@ -221,7 +244,7 @@ class CentralInterviewOrchestrator:
                 "message": follow_up_text,
                 "current_difficulty": session.current_difficulty,
                 "next_question": self._format_question(followup_q),
-                "follow_up_count": curr_question.follow_up_count,
+                "follow_up_count": root_parent.follow_up_count,
                 "is_concluded": False,
                 "session_status": session.status,
                 "transcript": transcript_text,
@@ -258,9 +281,10 @@ class CentralInterviewOrchestrator:
             .options(selectinload(InterviewQuestion.round))
             .where(
                 InterviewQuestion.session_id == session.id,
-                InterviewQuestion.status == "pending"
+                InterviewQuestion.status == "pending",
+                InterviewQuestion.id != curr_question.id
             )
-            .order_by(InterviewQuestion.order_index.asc())
+            .order_by(InterviewQuestion.order_index.asc(), InterviewQuestion.created_at.asc())
         )
         res = await db.execute(stmt)
         next_q = res.scalars().first()
@@ -284,7 +308,14 @@ class CentralInterviewOrchestrator:
         return await self.conclude_interview(db, session.id)
 
     async def conclude_interview(self, db: AsyncSession, session_id: str) -> Dict[str, Any]:
-        stmt = select(InterviewSession).where(InterviewSession.id == session_id)
+        stmt = (
+            select(InterviewSession)
+            .options(
+                selectinload(InterviewSession.user).selectinload(User.profile),
+                selectinload(InterviewSession.questions).selectinload(InterviewQuestion.answers).selectinload(InterviewAnswer.evaluation)
+            )
+            .where(InterviewSession.id == session_id)
+        )
         res = await db.execute(stmt)
         session = res.scalar_one_or_none()
         if not session:
@@ -318,7 +349,72 @@ class CentralInterviewOrchestrator:
         )
 
         pdf_path = f"./media/report_{session.id}.pdf"
-        feedback_coach.generate_pdf_report(session.id, {**report_summary, "target_role": session.target_role}, pdf_path)
+
+        # Enrich report data for professional PDF rendering
+        cand_name = "Candidate"
+        if session.user and session.user.profile and session.user.profile.full_name:
+            cand_name = session.user.profile.full_name
+        elif session.user and session.user.email:
+            cand_name = session.user.email.split("@")[0].replace(".", " ").title()
+
+        if session.created_at:
+            int_date = session.created_at.strftime("%b %d, %Y")
+            int_time = session.created_at.strftime("(%I:%M %p)")
+            disp_id = f"INT-{session.created_at.strftime('%Y-%m-%d')}-{session.id[:3].upper()}"
+        else:
+            int_date = "Apr 26, 2025"
+            int_time = "(10:30 AM)"
+            disp_id = f"INT-{session.id[:8].upper()}"
+
+        questions = session.questions or []
+        ans_count = len([q for q in questions if q.status == "answered"])
+        tot_count = len(questions) if len(questions) > 0 else (session.total_planned_questions or 5)
+
+        issues = []
+        skip_cnt = len([q for q in questions if q.status == "skipped"])
+        if skip_cnt > 0:
+            s_suf = "s" if skip_cnt > 1 else ""
+            issues.append(f"Skipped {skip_cnt} question{s_suf} due to time management.")
+
+        inc_cnt = 0
+        for q in questions:
+            for a in q.answers:
+                if a.evaluation and (a.evaluation.insufficient_evidence or a.evaluation.completeness_score < 3):
+                    inc_cnt += 1
+                    break
+        if inc_cnt > 0:
+            i_suf = "s" if inc_cnt > 1 else ""
+            issues.append(f"Gave an incomplete answer for {inc_cnt} technical question{i_suf}.")
+        if not issues:
+            issues = ["No significant interview issues were recorded."]
+
+        ovr_score = report_summary["overall_score"]
+        if ovr_score >= 80:
+            rec = "Ready for advanced technical interview rounds with high confidence."
+        elif ovr_score >= 65:
+            rec = "Ready for the next level with focused practice."
+        else:
+            rec = "Continue practicing core fundamentals before the next interview round."
+
+        rich_report_data = {
+            **report_summary,
+            "candidate_name": cand_name,
+            "target_role": session.target_role,
+            "session_id_display": disp_id,
+            "interview_date": int_date,
+            "interview_time": int_time,
+            "duration": f"{session.duration_minutes or 15} minutes",
+            "status": "Completed",
+            "questions_answered": f"{ans_count} / {tot_count}",
+            "tech_score_100": round((report_summary["technical_avg"] / 5.0) * 100),
+            "comm_score_100": round((report_summary["communication_avg"] / 5.0) * 100),
+            "behav_score_100": round((((report_summary["problem_solving_avg"] + report_summary["relevance_avg"]) / 2.0) / 5.0) * 100),
+            "issues": issues,
+            "final_feedback": report_summary.get("summary"),
+            "recommendation": rec
+        }
+
+        feedback_coach.generate_pdf_report(session.id, rich_report_data, pdf_path)
 
         report = InterviewReport(
             session_id=session.id,
